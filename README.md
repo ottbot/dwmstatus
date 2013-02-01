@@ -1,0 +1,4 @@
+dwmstatus
+=========
+
+Personal dwmstatus tool
