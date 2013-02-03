@@ -12,9 +12,8 @@
 
 #include <X11/Xlib.h>
 
-char *tzargentina = "America/Buenos_Aires";
 char *tzutc = "UTC";
-char *tzberlin = "Europe/Berlin";
+char *tzlondon = "Europe/London";
 
 static Display *dpy;
 
@@ -92,14 +91,83 @@ loadavg(void)
 	return smprintf("%.2f %.2f %.2f", avgs[0], avgs[1], avgs[2]);
 }
 
+char *
+readfile(char *base, char *file)
+{
+	char *path, line[513];
+	FILE *fd;
+
+	memset(line, 0, sizeof(line));
+
+	path = smprintf("%s/%s", base, file);
+	fd = fopen(path, "r");
+	if (fd == NULL)
+		return NULL;
+	free(path);
+
+	if (fgets(line, sizeof(line)-1, fd) == NULL)
+		return NULL;
+	fclose(fd);
+
+	return smprintf("%s", line);
+}
+
+/*
+ * Linux seems to change the filenames after suspend/hibernate
+ * according to a random scheme. So just check for both possibilities.
+ */
+char *
+getbattery(char *base)
+{
+	char *co;
+	int descap, remcap;
+
+	descap = -1;
+	remcap = -1;
+
+	co = readfile(base, "present");
+	if (co == NULL || co[0] != '1') {
+		if (co != NULL) free(co);
+		return smprintf("not present");
+	}
+	free(co);
+
+	co = readfile(base, "charge_full_design");
+	if (co == NULL) {
+		co = readfile(base, "energy_full_design");
+		if (co == NULL)
+			return smprintf("");
+	}
+	sscanf(co, "%d", &descap);
+	free(co);
+
+	co = readfile(base, "charge_now");
+	if (co == NULL) {
+		co = readfile(base, "energy_now");
+		if (co == NULL)
+			return smprintf("");
+	}
+	sscanf(co, "%d", &remcap);
+	free(co);
+
+	if (remcap < 0 || descap < 0)
+		return smprintf("invalid");
+
+	return smprintf("%.0f", ((float)remcap / (float)descap) * 100);
+}
+
+
 int
 main(void)
 {
 	char *status;
-	char *avgs;
-	char *tmar;
-	char *tmutc;
-	char *tmbln;
+	//char *avgs;
+	char *tmldn;
+  char *batt;
+
+  char *battery_basedir =
+      "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/device:08"
+      "/PNP0C09:00/PNP0C0A:00/power_supply/BAT0";
 
 	if (!(dpy = XOpenDisplay(NULL))) {
 		fprintf(stderr, "dwmstatus: cannot open display.\n");
@@ -107,18 +175,16 @@ main(void)
 	}
 
 	for (;;sleep(90)) {
-		avgs = loadavg();
-		tmar = mktimes("%H:%M", tzargentina);
-		tmutc = mktimes("%H:%M", tzutc);
-		tmbln = mktimes("KW %W %a %d %b %H:%M %Z %Y", tzberlin);
+		//avgs = loadavg();
+    batt = getbattery(battery_basedir);
+		tmldn = mktimes("%d %b %H:%M", tzlondon);
 
-		status = smprintf("L:%s A:%s U:%s %s",
-				avgs, tmar, tmutc, tmbln);
+
+		status = smprintf("%s (%s%%)",
+                      tmldn, batt);
 		setstatus(status);
-		free(avgs);
-		free(tmar);
-		free(tmutc);
-		free(tmbln);
+		//free(avgs);
+		free(tmldn);
 		free(status);
 	}
 
@@ -126,4 +192,3 @@ main(void)
 
 	return 0;
 }
-
