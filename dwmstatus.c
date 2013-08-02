@@ -166,8 +166,8 @@ main(void)
   char *batt;
 
   char *battery_basedir =
-      "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/device:08"
-      "/PNP0C09:00/PNP0C0A:00/power_supply/BAT0";
+	"/sys/devices/LNXSYSTM:00/device:00/PNP0A08:00"
+	"/device:09/PNP0C09:00/PNP0C0A:00/power_supply/BAT0";
 
 	if (!(dpy = XOpenDisplay(NULL))) {
 		fprintf(stderr, "dwmstatus: cannot open display.\n");
